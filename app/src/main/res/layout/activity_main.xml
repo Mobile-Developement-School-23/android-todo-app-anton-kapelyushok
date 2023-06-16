@@ -4,13 +4,14 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".TodoAppActivity"
-    app:startDestination="@id/main_fragment">
+    android:background="#F7F6F2"
+    app:startDestination="@id/main_fragment"
+    tools:context=".TodoAppActivity">
 
     <androidx.fragment.app.FragmentContainerView
         android:id="@+id/main_fragment"
+        android:name="home.android.todo.TodoListScreenFragment"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:name="home.android.todo.TodoListScreenFragment"/>
+        android:layout_height="match_parent" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

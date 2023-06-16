@@ -12,17 +12,19 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentManager
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 
 class TodoListScreenFragment : Fragment(R.layout.todo_list_fragment) {
     private val repo = TodoItemRepository
 
     private lateinit var todosView: RecyclerView
 
-    //    private lateinit var fabView: FloatingActionButton
+    private lateinit var fabView: FloatingActionButton
     private lateinit var navbarView: LinearLayout
 
     private lateinit var eyeView: ImageView
@@ -37,7 +39,7 @@ class TodoListScreenFragment : Fragment(R.layout.todo_list_fragment) {
         super.onViewCreated(view, savedInstanceState)
 
         todosView = view.findViewById(R.id.todos)
-//        fabView = findViewById(R.id.floating_action_button)
+        fabView = view.findViewById(R.id.floating_action_button)
         navbarView = view.findViewById(R.id.navbar)
 
         eyeView = view.findViewById(R.id.eye_button)
@@ -46,19 +48,46 @@ class TodoListScreenFragment : Fragment(R.layout.todo_list_fragment) {
 
         Log.i("poupa", Thread.currentThread().name)
 
+        fun modifyTodo(todoItem: TodoItem? = null) {
+            val fragmentManager: FragmentManager = requireActivity().supportFragmentManager
+            val t = fragmentManager.beginTransaction()
+            t.replace(
+                R.id.main_fragment, ModifyTodoItemFragment(
+                    todoItem = todoItem,
+                    onTodoChanged = {
+                        repo.addOrUpdate(it)
+                        updateState()
+                    },
+                    onTodoRemoved = {
+                        repo.remove(it)
+                        updateState()
+                    })
+            )
+            t.addToBackStack(null)
+            t.commit()
+        }
+
         adapter = TodosAdapter(
-            onAddTodo = {},
+            onAddTodo = {
+                modifyTodo()
+            },
             onTodoToggle = { id ->
                 val todo = repo.get(id)
                 repo.addOrUpdate(todo.copy(done = !todo.done))
                 updateState()
             },
-            onOpenTodo = {},
+            onOpenTodo = { id ->
+                val todo = repo.get(id)
+                modifyTodo(todo)
+            },
         )
         val layoutManager = LinearLayoutManager(this.context, LinearLayoutManager.VERTICAL, false)
         todosView.adapter = adapter
         todosView.layoutManager = layoutManager
 
+        fabView.setOnClickListener {
+            modifyTodo(null)
+        }
 
         eyeView.setOnClickListener {
             allVisible = !allVisible
@@ -73,8 +102,7 @@ class TodoListScreenFragment : Fragment(R.layout.todo_list_fragment) {
 
     fun getViewItems(): MutableList<TodoListItem> {
         val data = if (allVisible) repo.getAll() else repo.getPending()
-        return (data
-            .map { TodoListItem.Preview(it) } + listOf(TodoListItem.AddNew)).toMutableList()
+        return (data.map { TodoListItem.Preview(it) } + listOf(TodoListItem.AddNew)).toMutableList()
     }
 
     fun updateState() {
@@ -89,7 +117,9 @@ class TodoListScreenFragment : Fragment(R.layout.todo_list_fragment) {
 
 sealed class TodoItemViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView)
 
-class PreviewHolder(itemView: View, val onToggle: (String) -> Unit) : TodoItemViewHolder(itemView) {
+class PreviewHolder(
+    itemView: View, val onToggle: (String) -> Unit, val onOpenTodo: (String) -> Unit
+) : TodoItemViewHolder(itemView) {
     fun onBind(item: TodoListItem) {
         if (item !is TodoListItem.Preview) error("")
         val model = item.model
@@ -100,10 +130,7 @@ class PreviewHolder(itemView: View, val onToggle: (String) -> Unit) : TodoItemVi
             TodoPriority.LOW -> textView.setTextWithIcon(model.text, R.drawable.arrow_down, 11, 14)
             TodoPriority.REGULAR -> textView.text = model.text
             TodoPriority.URGENT -> textView.setTextWithIcon(
-                model.text,
-                R.drawable.exclamations,
-                10,
-                16
+                model.text, R.drawable.exclamations, 10, 16
             )
         }
 
@@ -126,7 +153,7 @@ class PreviewHolder(itemView: View, val onToggle: (String) -> Unit) : TodoItemVi
 
         val infoButton = itemView.findViewById<ImageView>(R.id.todo_item_info_button)
         infoButton.setOnClickListener {
-            Log.d("my-tag", "Open ${model.id} - ${model.text}")
+            onOpenTodo(model.id)
         }
     }
 
@@ -141,8 +168,10 @@ class PreviewHolder(itemView: View, val onToggle: (String) -> Unit) : TodoItemVi
     }
 }
 
-class AddNewHolder(itemView: View) : TodoItemViewHolder(itemView) {
-    fun onBind() {}
+class AddNewHolder(itemView: View, val onAddTodo: () -> Unit) : TodoItemViewHolder(itemView) {
+    fun onBind() {
+        itemView.setOnClickListener { onAddTodo() }
+    }
 }
 
 class DiffCallback : DiffUtil.ItemCallback<TodoListItem>() {
@@ -188,7 +217,7 @@ class TodosAdapter(
                     R.layout.add_new_item,
                     parent,
                     false,
-                )
+                ), onAddTodo = onAddTodo
             )
 
             PREVIEW -> PreviewHolder(
@@ -197,6 +226,7 @@ class TodosAdapter(
                     parent,
                     false,
                 ),
+                onOpenTodo = onOpenTodo,
                 onToggle = onTodoToggle,
             )
 

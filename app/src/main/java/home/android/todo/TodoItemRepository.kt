@@ -1,7 +1,7 @@
 package home.android.todo
 
-import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import kotlin.random.Random
 
 object TodoItemRepository {
@@ -30,8 +30,7 @@ object TodoItemRepository {
                 randomText(),
                 randomPriority(),
                 if (Random.nextBoolean())
-                    Instant.now() - Duration.ofHours(20L) + Duration.ofMinutes(2400)
-                else null,
+                    LocalDate.now() else null,
                 Random.nextBoolean(),
                 Instant.MAX,
                 Instant.MAX
@@ -57,5 +56,9 @@ object TodoItemRepository {
 
     fun addOrUpdate(todoItem: TodoItem): TodoItem? {
         return data.put(todoItem.id, todoItem)
+    }
+
+    fun remove(id: String) {
+        data.remove(id)
     }
 }
