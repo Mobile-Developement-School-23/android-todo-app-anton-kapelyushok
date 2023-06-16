@@ -1,26 +1,39 @@
 package home.android.todo
 
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
+import android.text.Spannable
+import android.text.SpannableStringBuilder
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import java.time.Instant
 
 
 class TodoAppActivity : AppCompatActivity() {
+
+    private val repo = TodoItemRepository
 
     private lateinit var todosView: RecyclerView
 
     //    private lateinit var fabView: FloatingActionButton
     private lateinit var navbarView: LinearLayout
+
+    private lateinit var eyeView: ImageView
+
+    private lateinit var adapter: TodosAdapter
+
+    private lateinit var completedCountView: TextView
+
+    var allVisible = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,69 +43,105 @@ class TodoAppActivity : AppCompatActivity() {
 //        fabView = findViewById(R.id.floating_action_button)
         navbarView = findViewById(R.id.navbar)
 
+        eyeView = findViewById(R.id.eye_button)
+
+        completedCountView = findViewById(R.id.completed_count)
+
         Log.i("poupa", Thread.currentThread().name)
 
-        val adapter = TodosAdapter()
+        adapter = TodosAdapter(
+            onAddTodo = {},
+            onTodoToggle = { id ->
+                val todo = repo.get(id)
+                repo.addOrUpdate(todo.copy(done = !todo.done))
+                updateState()
+            },
+            onOpenTodo = {},
+        )
         val layoutManager = LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false)
         todosView.adapter = adapter
         todosView.layoutManager = layoutManager
 
-        var longString =
-            "Очень большой длинный текст пожалуйста укоротись ну пожалуйста еще перенесись на другую строку мы договорились?"
-        longString = "$longString $longString"
 
+        eyeView.setOnClickListener {
+            allVisible = !allVisible
 
-        val todos = mutableListOf(
-            TodoItem("1", longString, TodoPriority.LOW, null, false, Instant.MAX, Instant.MAX),
-            TodoItem("2", "text2", TodoPriority.LOW, null, false, Instant.MAX, Instant.MAX),
-        )
+            if (allVisible) eyeView.setImageResource(R.drawable.eye_open)
+            else eyeView.setImageResource(R.drawable.eye_closed)
 
-        for (i in 3..30) {
-            todos += TodoItem(
-                "$i",
-                "text$i",
-                TodoPriority.LOW,
-                null,
-                false,
-                Instant.MAX,
-                Instant.MAX
-            )
+            updateState()
         }
+        updateState()
+    }
 
-        Handler(Looper.getMainLooper()).postDelayed({
-            adapter.items.add(
-                adapter.items.lastIndex, TodoListItem.Preview(
-                    TodoItem("2", "text2", TodoPriority.LOW, null, false, Instant.MAX, Instant.MAX)
-                )
-            )
+    fun getViewItems(): MutableList<TodoListItem> {
+        val data = if (allVisible) repo.getAll() else repo.getPending()
+        return (data
+            .map { TodoListItem.Preview(it) } + listOf(TodoListItem.AddNew)).toMutableList()
+    }
 
-            adapter.notifyItemInserted(adapter.items.lastIndex - 1)
-
-            adapter.items.withIndex().forEach { (id, v) ->
-                if (v is TodoListItem.Preview) {
-                    Log.d("mytag", "$id -> ${v.model.text}")
-                } else {
-                    Log.d("mytag", "$id -> addNew")
-                }
-
-            }
-
-        }, 4000L)
-
-        adapter.items =
-            (todos.map { TodoListItem.Preview(it) } + listOf(TodoListItem.AddNew)).toMutableList()
-
+    fun updateState() {
+        val list = getViewItems()
+        adapter.submitList(list)
+        adapter.items = list
+        completedCountView.text = resources.getString(R.string.completed_count).format(
+            repo.completedCount()
+        )
     }
 }
 
 sealed class TodoItemViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView)
 
-class PreviewHolder(itemView: View) : TodoItemViewHolder(itemView) {
+class PreviewHolder(itemView: View, val onToggle: (String) -> Unit) : TodoItemViewHolder(itemView) {
     fun onBind(item: TodoListItem) {
-        if (item is TodoListItem.Preview) {
-            val textView = itemView.findViewById<TextView>(R.id.todo_item_text)
-            textView.text = item.model.text
+        if (item !is TodoListItem.Preview) error("")
+        val model = item.model
+        val textView = itemView.findViewById<TextView>(R.id.todo_item_text)
+
+
+        when (model.priority) {
+            TodoPriority.LOW -> textView.setTextWithIcon(model.text, R.drawable.arrow_down, 11, 14)
+            TodoPriority.REGULAR -> textView.text = model.text
+            TodoPriority.URGENT -> textView.setTextWithIcon(
+                model.text,
+                R.drawable.exclamations,
+                10,
+                16
+            )
         }
+
+        val completeIcon = itemView.findViewById<ImageView>(R.id.todo_item_complete_icon)
+        Log.d("", model.priority.toString())
+        val imgResource = if (model.done) {
+            (R.drawable.square_complete)
+        } else {
+            if (model.priority == TodoPriority.URGENT) {
+                R.drawable.square_warn
+            } else {
+                R.drawable.square
+            }
+        }
+        completeIcon.setImageResource(imgResource)
+        completeIcon.setOnClickListener {
+            onToggle(model.id)
+        }
+
+
+        val infoButton = itemView.findViewById<ImageView>(R.id.todo_item_info_button)
+        infoButton.setOnClickListener {
+            Log.d("my-tag", "Open ${model.id} - ${model.text}")
+        }
+    }
+
+    private fun TextView.setTextWithIcon(text: String, iconId: Int, w: Int, h: Int) {
+        val buffer = SpannableStringBuilder("  " + text)
+        val icon = ContextCompat.getDrawable(itemView.context, iconId)!!
+        val x = (context.resources.displayMetrics.density * w).toInt()
+        val y = (context.resources.displayMetrics.density * h).toInt()
+        icon.setBounds(0, 0, x, y)
+        buffer.setSpan(VerticalImageSpan(icon), 0, 1, Spannable.SPAN_INCLUSIVE_EXCLUSIVE)
+        buffer.append(text)
+        this.text = buffer
     }
 }
 
@@ -100,7 +149,26 @@ class AddNewHolder(itemView: View) : TodoItemViewHolder(itemView) {
     fun onBind() {}
 }
 
-class TodosAdapter : RecyclerView.Adapter<TodoItemViewHolder>() {
+class DiffCallback : DiffUtil.ItemCallback<TodoListItem>() {
+    override fun areItemsTheSame(oldItem: TodoListItem, newItem: TodoListItem): Boolean {
+        if (oldItem is TodoListItem.AddNew && newItem is TodoListItem.AddNew) return true
+        if (oldItem is TodoListItem.Preview && newItem is TodoListItem.Preview) {
+            return oldItem.model.id == newItem.model.id
+        }
+        return false
+    }
+
+    override fun areContentsTheSame(oldItem: TodoListItem, newItem: TodoListItem): Boolean {
+        return oldItem == newItem
+    }
+
+}
+
+class TodosAdapter(
+    private val onAddTodo: () -> Unit,
+    private val onTodoToggle: (id: String) -> Unit,
+    private val onOpenTodo: (id: String) -> Unit,
+) : ListAdapter<TodoListItem, TodoItemViewHolder>(DiffCallback()) {
     companion object {
         val ADD_NEW = 0
         val PREVIEW = 1
@@ -132,7 +200,8 @@ class TodosAdapter : RecyclerView.Adapter<TodoItemViewHolder>() {
                     R.layout.todo_item,
                     parent,
                     false,
-                )
+                ),
+                onToggle = onTodoToggle,
             )
 
             else -> error("Unknown viewType $viewType")
@@ -144,6 +213,7 @@ class TodosAdapter : RecyclerView.Adapter<TodoItemViewHolder>() {
     }
 
     override fun onBindViewHolder(holder: TodoItemViewHolder, position: Int) {
+        println("onBindViewHolder $position")
         when (holder) {
             is PreviewHolder -> holder.onBind(items[position])
             is AddNewHolder -> holder.onBind()

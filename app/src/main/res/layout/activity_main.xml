@@ -31,7 +31,7 @@
                 android:id="@+id/hello_world"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Мои дела"
+                android:text="@string/my_todos"
                 android:textColor="@color/black"
                 android:textSize="32sp"
                 android:textStyle="bold"
@@ -46,15 +46,17 @@
                 android:gravity="start|center">
 
                 <TextView
+                    android:id="@+id/completed_count"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Выполнено - 5"
+                    android:text="@string/completed_count"
                     android:textSize="16sp"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
 
                 <ImageView
-                    android:layout_width="15dp"
+                    android:id="@+id/eye_button"
+                    android:layout_width="22dp"
                     android:layout_height="15dp"
                     android:src="@drawable/eye_open"
                     app:layout_constraintBottom_toBottomOf="parent"

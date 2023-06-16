@@ -8,6 +8,7 @@
     android:paddingBottom="12dp">
 
     <ImageView
+        android:id="@+id/todo_item_complete_icon"
         android:layout_width="18dp"
         android:layout_height="18dp"
         android:layout_marginStart="3dp"
@@ -28,6 +29,7 @@
         android:textSize="16sp" />
 
     <ImageView
+        android:id="@+id/todo_item_info_button"
         android:layout_width="20dp"
         android:layout_height="20dp"
         android:layout_marginTop="2dp"
