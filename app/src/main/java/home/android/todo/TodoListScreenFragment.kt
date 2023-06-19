@@ -52,16 +52,11 @@ class TodoListScreenFragment : Fragment(R.layout.todo_list_fragment) {
             val fragmentManager: FragmentManager = requireActivity().supportFragmentManager
             val t = fragmentManager.beginTransaction()
             t.replace(
-                R.id.main_fragment, ModifyTodoItemFragment(
-                    todoItem = todoItem,
-                    onTodoChanged = {
-                        repo.addOrUpdate(it)
-                        updateState()
-                    },
-                    onTodoRemoved = {
-                        repo.remove(it)
-                        updateState()
-                    })
+                R.id.main_fragment,
+                ModifyTodoItemFragment::class.java,
+                Bundle().apply {
+                    putString("todoItemId", todoItem?.id)
+                },
             )
             t.addToBackStack(null)
             t.commit()
@@ -112,6 +107,11 @@ class TodoListScreenFragment : Fragment(R.layout.todo_list_fragment) {
         completedCountView.text = resources.getString(R.string.completed_count).format(
             repo.completedCount()
         )
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putBoolean("allVisible", allVisible)
+        super.onSaveInstanceState(outState)
     }
 }
 

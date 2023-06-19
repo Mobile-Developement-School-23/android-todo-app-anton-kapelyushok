@@ -19,17 +19,28 @@ import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 
-class ModifyTodoItemFragment(
-    val todoItem: TodoItem? = null, val onTodoChanged: (TodoItem) -> Unit,
-    val onTodoRemoved: (String) -> Unit,
-) : Fragment(R.layout.modify_todo_item) {
+class ModifyTodoItemFragment() : Fragment(R.layout.modify_todo_item) {
 
-    val id = todoItem?.id ?: UUID.randomUUID().toString()
-    var text = todoItem?.text ?: ""
-    var priority = todoItem?.priority ?: TodoPriority.REGULAR
-    var deadline = todoItem?.deadline
-    var done = todoItem?.done ?: false
-    var createdAt = todoItem?.createdAt
+    val repo = TodoItemRepository
+
+    lateinit var id: String
+    lateinit var text: String
+    lateinit var priority: TodoPriority
+    var deadline: LocalDate? = null
+    var done: Boolean = false
+    var createdAt: Instant? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val idParam = arguments?.getString("todoItemId")
+        val todoItem = idParam?.let { repo.get(it) }
+        id = idParam ?: UUID.randomUUID().toString()
+        text = todoItem?.text ?: ""
+        priority = todoItem?.priority ?: TodoPriority.REGULAR
+        deadline = todoItem?.deadline
+        done = todoItem?.done ?: false
+        createdAt = todoItem?.createdAt
+    }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -48,13 +59,13 @@ class ModifyTodoItemFragment(
                 createdAt = createdAt ?: now,
                 modifiedAt = now,
             )
-            onTodoChanged(item)
+            repo.addOrUpdate(item)
             fragmentManager.popBackStack()
         }
 
         val removeButton = view.findViewById<View>(R.id.remove_button)
         removeButton.setOnClickListener {
-            onTodoRemoved(id)
+            repo.remove(id)
             fragmentManager.popBackStack()
         }
 
